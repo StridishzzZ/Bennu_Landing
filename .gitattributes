@@ -1,0 +1,17 @@
+# 统一换行符处理
+* text=auto
+
+*.py   text eol=lf
+*.md   text eol=lf
+*.csv  text eol=lf
+*.txt  text eol=lf
+*.json text eol=lf
+
+# 二进制文件不做换行转换与差异显示
+*.pdf  binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.docx binary
+*.xlsx binary
+*.pptx binary

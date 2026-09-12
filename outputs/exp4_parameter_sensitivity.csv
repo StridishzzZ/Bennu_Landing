@@ -1,0 +1,13 @@
+﻿parameter,sign,rank_changes,max_isvm_delta,order
+organic_abundance,1,0,0.008166666666666655,Nightingale/Sandpiper/Kingfisher/Osprey
+organic_abundance,-1,0,0.008166666666666655,Nightingale/Sandpiper/Kingfisher/Osprey
+ch2_ch3,1,0,0.0041999999999999815,Nightingale/Sandpiper/Kingfisher/Osprey
+ch2_ch3,-1,0,0.0041999999999999815,Nightingale/Sandpiper/Kingfisher/Osprey
+carbon_content_pct,1,0,0.005833333333333357,Nightingale/Sandpiper/Kingfisher/Osprey
+carbon_content_pct,-1,0,0.005833333333333357,Nightingale/Sandpiper/Kingfisher/Osprey
+mineral_classes_detected,1,0,0.011249999999999982,Nightingale/Sandpiper/Kingfisher/Osprey
+mineral_classes_detected,-1,0,0.011249999999999982,Nightingale/Sandpiper/Kingfisher/Osprey
+hydration_depth,1,0,0.01200000000000001,Nightingale/Sandpiper/Kingfisher/Osprey
+hydration_depth,-1,0,0.0119999999999999,Nightingale/Sandpiper/Kingfisher/Osprey
+space_weathering_proxy,1,0,0.0025000000000000577,Nightingale/Sandpiper/Kingfisher/Osprey
+space_weathering_proxy,-1,0,0.0024999999999999467,Nightingale/Sandpiper/Kingfisher/Osprey

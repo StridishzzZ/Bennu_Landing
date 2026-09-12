@@ -1,0 +1,34 @@
+# ---------------- Python ----------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.ipynb_checkpoints/
+
+# ---------------- 虚拟环境 ----------------
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# ---------------- 中间产物（可再生成）----------------
+tmp/
+*.log
+.cache/
+.pytest_cache/
+
+# ---------------- IDE / 系统 ----------------
+.vs/
+.idea/
+*.swp
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# .vscode 只保留解释器配置
+.vscode/*
+!.vscode/settings.json
+
+# Articles (literature PDFs) are intentionally NOT tracked.
+articles/

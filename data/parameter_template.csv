@@ -1,0 +1,2 @@
+site,organic_abundance,ch2_ch3,carbon_content_pct,mineral_classes_detected,hydration_depth,space_weathering_proxy,crater_freshness,activity_level,psfd_class,temp_rel_global,tmax_k,slope_deg,boulder_coverage,roughness,frac_le2cm,max_particle_cm,tagsam_tilt_deg,target_radius_m,nav_error_m,source,confidence
+Nightingale,0.7,0.8,5.0,4.5,0.8,0.3,recent,none,fine,colder,300,5.0,0.1,0.3,0.8,2.0,3.0,8.0,1.0,示例行（数据来源见 data/README.md）,medium

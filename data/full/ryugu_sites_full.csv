@@ -1,0 +1,8 @@
+site,lat_deg,lon_deg,organic_abundance,volatile_abundance,organic_silicate_ratio,ch2_ch3,carbon_content_pct,mineral_phyllo,mineral_carbonate,mineral_sulfate,mineral_oxide,mineral_silicate,mineral_amorphous,amorphous_fraction,hydration_depth,space_weathering_proxy,crater_freshness,activity_level,psfd_class,brittle_deformation,geologic_diversity,temp_rel_global,tmax_k,slope_deg,boulder_coverage,roughness,frac_le2cm,min_particle_cm,max_particle_cm,tagsam_tilt_deg,target_radius_m,nav_error_m,source,confidence
+L05,,,0.60,0.60,0.50,1.00,3.5,1.0,0.5,0.5,0.5,1.0,0.5,0.5,0.60,0.35,paleo,none,mix,0.5,0.50,average,340,6.0,0.185,0.50,0.40,0.30,6.0,4.0,5.0,2.0,Yabuta2019;partly estimate,medium
+L07,,,0.60,0.60,0.50,1.00,3.5,1.0,0.5,0.5,0.5,1.0,0.5,0.5,0.60,0.30,paleo,none,mix,0.5,0.55,average,340,5.0,0.107,0.40,0.50,0.30,5.0,4.0,5.0,2.0,Yabuta2019;partly estimate,medium
+L08,,,0.60,0.60,0.50,1.00,3.5,1.0,0.5,0.5,0.5,1.0,0.5,0.5,0.60,0.30,paleo,none,mix,0.5,0.60,average,340,4.0,0.120,0.35,0.60,0.30,4.0,4.0,3.0,2.7,Yabuta2019;partly estimate,medium
+L12,,,0.60,0.60,0.50,1.00,3.5,1.0,0.5,0.5,0.5,1.0,0.5,0.5,0.60,0.35,paleo,none,mix,0.5,0.50,average,340,7.0,0.190,0.50,0.40,0.30,6.0,4.0,5.0,2.0,Yabuta2019;partly estimate,medium
+M01,,,0.60,0.60,0.50,1.00,4.0,1.0,0.5,0.5,0.5,1.0,0.5,0.5,0.60,0.60,paleo,none,mix,0.5,0.50,average,340,6.0,0.200,0.50,0.35,0.30,6.0,4.0,5.0,2.0,Yabuta2019;partly estimate,medium
+M03,,,0.60,0.60,0.50,1.00,3.5,1.0,0.5,0.5,0.5,1.0,0.5,0.5,0.60,0.55,paleo,none,mix,0.5,0.55,average,340,5.0,0.175,0.45,0.45,0.30,5.0,4.0,5.0,2.0,Yabuta2019;partly estimate,medium
+M04,,,0.60,0.60,0.50,1.00,3.5,1.0,0.5,0.5,0.5,1.0,0.5,0.5,0.60,0.55,paleo,none,mix,0.5,0.55,average,340,5.0,0.150,0.45,0.50,0.30,5.0,4.0,5.0,2.0,Yabuta2019;partly estimate,medium
