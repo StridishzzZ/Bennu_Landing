@@ -8,7 +8,7 @@
    10 个 c(p) 逐像元求和恒等于 ISVM；
 3. **全幅像元级填充（实装测试）**：候选区用站点级评分（与实验 1 完全一致），
    区外填充合成占位数据——连续参数取"参数域内最差端"的窄区间并叠加固定种子的
-   微弱平滑扰动（评分 ∈ [0, FILL_FRAC]），分类参数取评分最低的档位。
+   平滑扰动（评分 ≤ FILL_RATIO × 该参数候选区最低评分），分类参数取评分最低的档位。
    因此填充区评分恒 ≤ 候选区最小值，**不影响候选区结果**，且与候选区差别最大；
    填充区在 `bennu_fill_mask.tiff` 中标记为 0，可随时识别为合成数据；
 4. 格网沿用实验 10 的真实 DOM 格网，保证与真实 Bennu 影像逐像元套合。
@@ -60,8 +60,9 @@ DEG2M = np.pi * BENNU_MEAN_RADIUS_M / 180.0
 NODATA = -9999.0
 
 # 填充区合成数据参数
-FILL_FRAC = 0.05     # 连续参数：填充值落在"最差端"域宽的 5% 内 → 评分 ∈ [0, 0.05]
-FILL_SEED = 20260920  # 固定随机种子，保证填充场可复现
+FILL_RATIO = 0.5      # 连续参数：填充评分上限 = 0.5 × 该参数候选区最低评分（保证不影响结果）
+FILL_FIELD_MIX = 0.65  # 填充场构成：0.65×共享基底场 + 0.35×该参数独立场（保证全幅结构可见）
+FILL_SEED = 20260920   # 固定随机种子，保证填充场可复现
 OVERLAY_ALPHA = 0.75  # 数值层叠加到真实底图上的统一透明度（保证颜色↔数值编码一致）
 
 # 参数贡献度图使用的红蓝渐变色标：蓝=低，白=中，红=高
@@ -94,8 +95,12 @@ def effective_weights(weights):
     return eff
 
 
-def _smooth_noise_field(rng, shape, coarse=12, octaves=2):
-    """可复现的多尺度平滑噪声场，值域归一到 [0, 1]，float32。"""
+def _smooth_noise_field(rng, shape, coarse=8, octaves=3, contrast=0.25):
+    """可复现的多尺度平滑噪声场，值域归一到 [0, 1]，float32。
+
+    ``contrast`` 控制对比拉伸：把两端各 contrast 比例的区域压到 0/1，
+    使填充区出现"成片的高值区与低值区"，而不是均匀噪声。
+    """
     h, w = shape
     acc = np.zeros((h, w), dtype="float64")
     amp, total = 1.0, 0.0
@@ -107,13 +112,18 @@ def _smooth_noise_field(rng, shape, coarse=12, octaves=2):
         amp *= 0.5
     acc /= max(total, 1e-9)
     lo, hi = float(acc.min()), float(acc.max())
-    return ((acc - lo) / max(hi - lo, 1e-12)).astype("float32")
+    field = (acc - lo) / max(hi - lo, 1e-12)
+    if contrast > 0:
+        field = np.clip((field - contrast) / max(1.0 - 2 * contrast, 1e-6), 0.0, 1.0)
+    return field.astype("float32")
 
 
-def _fill_score_field(param, shape, rng, frac=FILL_FRAC):
+def _fill_score_field(param, shape, rng, base_field, cand_min_score, ratio=FILL_RATIO):
     """候选区以外的填充评分场（float32）。
 
-    * 连续型：取值限制在参数域"最差端"的 ``frac`` 区间内，评分 ∈ [0, frac]；
+    * 连续型：评分 = ``ratio × 候选区最低评分 × field``，其中 field ∈ [0,1]
+      是"共享基底场 + 本参数独立场"的混合场，因此全幅既有成片结构、
+      各参数之间又不完全相同；
     * 分类型：取评分最低的档位（常数，因为分类评分是离散的）。
 
     两种情形都保证填充评分 ≤ 任何候选区评分，从而实现"不影响结果 + 差别最大"。
@@ -121,13 +131,9 @@ def _fill_score_field(param, shape, rng, frac=FILL_FRAC):
     d = PARAMETERS[param]
     if d["kind"] != "continuous":
         return np.full(shape, float(min(d["categories"].values())), dtype="float32")
-    noise = _smooth_noise_field(rng, shape)
-    span = float(d["hi"] - d["lo"])
-    if d["direction"] == "higher_better":
-        value = float(d["lo"]) + frac * span * noise          # 越接近 lo 越差
-        return ((value - d["lo"]) / span).astype("float32")
-    value = float(d["hi"]) - frac * span * noise              # 越接近 hi 越差
-    return (1.0 - (value - d["lo"]) / span).astype("float32")
+    own = _smooth_noise_field(rng, shape)
+    field = np.clip(FILL_FIELD_MIX * base_field + (1.0 - FILL_FIELD_MIX) * own, 0.0, 1.0)
+    return (ratio * float(cand_min_score) * field).astype("float32")
 
 
 def _site_slice(grid, lat, lon, radius_m, margin=1.6):
@@ -223,9 +229,11 @@ def main():
         roi_outline[name] = (lat, lon, float(f["roi_diameter_m"]) / 2.0)
 
     rng_fill = np.random.default_rng(FILL_SEED)
+    base_field = _smooth_noise_field(rng_fill, shape)      # 全参数共享的空间基底
+    cand_min_score = per_param[SCIENCE_PARAMETERS].min()   # 各参数候选区最低评分
     contrib = {}
     for p in SCIENCE_PARAMETERS:
-        sf = _fill_score_field(p, shape, rng_fill)       # 区外填充评分
+        sf = _fill_score_field(p, shape, rng_fill, base_field, cand_min_score[p])
         for name, sl, disk in site_masks:                # 候选区覆盖为真实评分
             v = sf[sl]
             v[disk] = float(per_param.loc[name, p])
@@ -242,14 +250,16 @@ def main():
     print(f"  格网 {shape[1]}×{shape[0]} = {n_px/1e6:.2f} M 像元，"
           f"其中候选区 {n_cand} 像元（{100*n_cand/n_px:.2f}%）、"
           f"填充区 {n_px-n_cand} 像元（{100*(n_px-n_cand)/n_px:.2f}%）")
-    print(f"  填充规则：连续参数取最差端 {FILL_FRAC*100:.0f}% 域宽 + 平滑噪声（种子 {FILL_SEED}）；"
-          f"分类参数取最低档")
+    print(f"  填充规则：连续参数评分 ≤ {FILL_RATIO:.0%} × 该参数候选区最低评分"
+          f"（共享基底场 {FILL_FIELD_MIX:.0%} + 独立场，种子 {FILL_SEED}）；分类参数取最低档")
     print(f"  生成耗时 {t_fill:.2f} s（10 个参数的填充场 + 评分）")
 
     cand_min_isvm = float(ref.min())
     fill_max_isvm = float(isvm_map[fill_mask == 0].max())
+    fill_min_isvm = float(isvm_map[fill_mask == 0].min())
     print(f"  候选区 ISVM ∈ [{cand_min_isvm:.4f}, {float(ref.max()):.4f}]  |  "
-          f"填充区 ISVM ∈ [{float(isvm_map[fill_mask == 0].min()):.4f}, {fill_max_isvm:.4f}]")
+          f"填充区 ISVM ∈ [{fill_min_isvm:.4f}, {fill_max_isvm:.4f}]"
+          f"（跨度 {fill_max_isvm - fill_min_isvm:.4f}）")
     print(f"  填充区最大 ISVM < 候选区最小 ISVM ：{fill_max_isvm < cand_min_isvm} "
           f"（差值 {cand_min_isvm - fill_max_isvm:.4f}）")
 
@@ -262,7 +272,7 @@ def main():
         metadata={"product": "landing_site_science_value", "weight_scheme": args.weights,
                   "footprint_radius_m": "per site_footprints.csv",
                   "fill": "synthetic placeholder: worst-end value + smooth noise",
-                  "fill_seed": FILL_SEED, "fill_frac": FILL_FRAC,
+                  "fill_seed": FILL_SEED, "fill_ratio": FILL_RATIO,
                   "mask_band": "bennu_fill_mask.tiff (1=candidate, 0=synthetic)"})
 
     cube = np.stack([contrib[p] for p in SCIENCE_PARAMETERS]).astype("float32")
@@ -273,7 +283,7 @@ def main():
         metadata={"product": "param_contribution_absolute",
                   "definition": "c(p) = s(p) * w(indicator)/n(indicator); sum == ISVM",
                   "weight_scheme": args.weights,
-                  "fill_seed": FILL_SEED, "fill_frac": FILL_FRAC})
+                  "fill_seed": FILL_SEED, "fill_ratio": FILL_RATIO})
     del cube
 
     share = np.stack([(100.0 * contrib[p] / isvm_map).astype("float32")
@@ -348,7 +358,7 @@ def _panel_base(ax, dom, dom_mask, grid, title, scale=1.0):
 
 
 def _draw_global_panel(ax, grid, dom, dom_mask, isvm_map, fp, sites_order, ref,
-                       scale=1.0):
+                       scale=1.0, vmin=0.5, vmax=0.8):
     """绘制「Bennu 全域（DOM）」面板。
 
     这是 `fig_landing_value_on_bennu.png` 第 1 个子图与
@@ -358,7 +368,8 @@ def _draw_global_panel(ax, grid, dom, dom_mask, isvm_map, fp, sites_order, ref,
     ext = [grid.lon_min, grid.lon_max, grid.lat_min, grid.lat_max]
     _panel_base(ax, dom, dom_mask, grid, "Bennu 全域（DOM）", scale=scale)
     im = ax.imshow(np.where(np.isnan(isvm_map), np.nan, isvm_map), extent=ext,
-                   origin="upper", cmap="turbo", vmin=0.5, vmax=0.8, alpha=OVERLAY_ALPHA)
+                   origin="upper", cmap="turbo", vmin=vmin, vmax=vmax,
+                   alpha=OVERLAY_ALPHA)
     for name in sites_order:
         if name in ref.index:
             f = fp[fp["site"] == name].iloc[0]
@@ -381,11 +392,14 @@ def _figures(args, grid, dom, dom_mask, fp, isvm_map, contrib, ref, roi_outline,
              contrib_df):
     ext = [grid.lon_min, grid.lon_max, grid.lat_min, grid.lat_max]
     sites_order = fp["site"].tolist()
+    # ISVM 色标改成"全幅数据范围"，否则填充区会被压到色标下限、纹理不可见
+    isvm_vmin = float(np.nanmin(isvm_map))
+    isvm_vmax = float(np.nanmax(isvm_map))
 
     # 图 1：着陆点科学性价值
     fig, axes = plt.subplots(1, 5, figsize=(22, 4.6))
     _draw_global_panel(axes[0], grid, dom, dom_mask, isvm_map, fp, sites_order, ref,
-                       scale=1.0)
+                       scale=1.0, vmin=isvm_vmin, vmax=isvm_vmax)
 
     for ax, name in zip(axes[1:], sites_order):
         f = fp[fp["site"] == name].iloc[0]
@@ -395,7 +409,8 @@ def _figures(args, grid, dom, dom_mask, fp, isvm_map, contrib, ref, roi_outline,
                   origin="upper", cmap="gray", vmin=0,
                   vmax=float(np.nanpercentile(dom[~dom_mask], 98)))
         ax.imshow(np.where(np.isnan(isvm_map[sl]), np.nan, isvm_map[sl]), extent=zext,
-                  origin="upper", cmap="turbo", vmin=0.5, vmax=0.8, alpha=OVERLAY_ALPHA)
+                  origin="upper", cmap="turbo", vmin=isvm_vmin, vmax=isvm_vmax,
+                  alpha=OVERLAY_ALPHA)
         ax.add_patch(Circle((0, 0), float(f["footprint_radius_m"]), fill=False,
                             ec="white", lw=0.8, ls="--"))
         r_roi = roi_outline[name][2]
@@ -492,13 +507,14 @@ def _figures(args, grid, dom, dom_mask, fp, isvm_map, contrib, ref, roi_outline,
     plt.close(fig)
     _fig_dom_global(args, grid, dom, dom_mask, isvm_map, fp, sites_order, ref,
                     ticks=global_ticks, limits=global_limits,
-                    panel_width_in=global_panel_width_in)
+                    panel_width_in=global_panel_width_in,
+                    vmin=isvm_vmin, vmax=isvm_vmax)
     print(f"[图] fig_landing_value_on_bennu.png / fig_param_*.png (10 张) / "
           f"fig_contribution_bars.png / fig_dom_global_sites.png")
 
 
 def _fig_dom_global(args, grid, dom, dom_mask, isvm_map, fp, sites_order, ref,
-                    ticks=None, limits=None, panel_width_in=None):
+                    ticks=None, limits=None, panel_width_in=None, vmin=0.5, vmax=0.8):
     """fig_dom_global_sites.png：与可视图第 1 个子图**内容完全相同**的等比放大版。
 
     两图共用 `_draw_global_panel()`，唯一差别是 `scale`——按两者地图区在纸面上的
@@ -512,7 +528,7 @@ def _fig_dom_global(args, grid, dom, dom_mask, isvm_map, fp, sites_order, ref,
             if cax is not ax:
                 fig.delaxes(cax)
         _draw_global_panel(ax, grid, dom, dom_mask, isvm_map, fp, sites_order, ref,
-                           scale=scale)
+                           scale=scale, vmin=vmin, vmax=vmax)
         if ticks is not None:
             ax.set_xticks(ticks[0])
             ax.set_yticks(ticks[1])
