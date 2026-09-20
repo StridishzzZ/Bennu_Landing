@@ -6,7 +6,11 @@
 1. 不使用坡度等工程门控，只用现有程序的 10 个科学参数；
 2. 贡献度为**加法分解**：``c(p) = s(p) × w(indicator(p)) / n(indicator(p))``，
    10 个 c(p) 逐像元求和恒等于 ISVM；
-3. 只表达四个候选区，区外一律记为 nodata（忽略），不做全球背景填充；
+3. **全幅像元级填充（实装测试）**：候选区用站点级评分（与实验 1 完全一致），
+   区外填充合成占位数据——连续参数取"参数域内最差端"的窄区间并叠加固定种子的
+   微弱平滑扰动（评分 ∈ [0, FILL_FRAC]），分类参数取评分最低的档位。
+   因此填充区评分恒 ≤ 候选区最小值，**不影响候选区结果**，且与候选区差别最大；
+   填充区在 `bennu_fill_mask.tiff` 中标记为 0，可随时识别为合成数据；
 4. 格网沿用实验 10 的真实 DOM 格网，保证与真实 Bennu 影像逐像元套合。
 
 输出
@@ -14,6 +18,7 @@
 * ``bennu_isvm_landing_value.tiff``      着陆点科学性价值（ISVM），单波段
 * ``bennu_param_contribution.tiff``      10 波段，每个科学参数的绝对贡献度
 * ``bennu_param_contribution_share.tiff``10 波段，贡献度占比（%，逐像元合计 100）
+* ``bennu_fill_mask.tiff``                掩膜：1=候选区实测/文献值，0=合成填充
 * ``fig_landing_value_on_bennu.png``     总图：真实 Bennu 影像 + 四站点 ISVM
 * ``fig_param_<参数名>.png`` ×10         每个参数的贡献度地图
 * ``fig_contribution_bars.png``          四站点贡献度堆叠条形图
@@ -28,6 +33,7 @@
 
 import argparse
 import os
+import time
 
 import numpy as np
 import pandas as pd
@@ -44,6 +50,7 @@ from src.pipeline import evaluate_sites  # noqa: E402
 from src.raster import BENNU_MEAN_RADIUS_M, GridSpec, read_decimated, write_geotiff  # noqa: E402
 from src.scoring import score_all_parameters  # noqa: E402
 from src.weights import get_weights  # noqa: E402
+from src.mineral_maps import _bilinear_upsample  # noqa: E402  复用平滑场放大工具
 
 PLANETARY_DIR = os.path.join(DATA_DIR, "planetary")
 DOM_FILE = "Bennu_DOM_DEG.tif"
@@ -51,6 +58,11 @@ SRC_RES_DEG = 0.01145876
 SRC_W, SRC_H = 31417, 15709
 DEG2M = np.pi * BENNU_MEAN_RADIUS_M / 180.0
 NODATA = -9999.0
+
+# 填充区合成数据参数
+FILL_FRAC = 0.05     # 连续参数：填充值落在"最差端"域宽的 5% 内 → 评分 ∈ [0, 0.05]
+FILL_SEED = 20260920  # 固定随机种子，保证填充场可复现
+OVERLAY_ALPHA = 0.75  # 数值层叠加到真实底图上的统一透明度（保证颜色↔数值编码一致）
 
 # 参数贡献度图使用的红蓝渐变色标：蓝=低，白=中，红=高
 # 可替换为 "bwr"（更饱和的蓝白红）、"RdBu_r"、"seismic" 等
@@ -80,6 +92,42 @@ def effective_weights(weights):
         for p in params:
             eff[p] = float(weights[ind]) / len(params)
     return eff
+
+
+def _smooth_noise_field(rng, shape, coarse=12, octaves=2):
+    """可复现的多尺度平滑噪声场，值域归一到 [0, 1]，float32。"""
+    h, w = shape
+    acc = np.zeros((h, w), dtype="float64")
+    amp, total = 1.0, 0.0
+    for o in range(octaves):
+        ch = max(3, int(h / (coarse * (2 ** o))))
+        cw = max(3, int(w / (coarse * (2 ** o))))
+        acc += amp * _bilinear_upsample(rng.random((ch, cw)), h, w)
+        total += amp
+        amp *= 0.5
+    acc /= max(total, 1e-9)
+    lo, hi = float(acc.min()), float(acc.max())
+    return ((acc - lo) / max(hi - lo, 1e-12)).astype("float32")
+
+
+def _fill_score_field(param, shape, rng, frac=FILL_FRAC):
+    """候选区以外的填充评分场（float32）。
+
+    * 连续型：取值限制在参数域"最差端"的 ``frac`` 区间内，评分 ∈ [0, frac]；
+    * 分类型：取评分最低的档位（常数，因为分类评分是离散的）。
+
+    两种情形都保证填充评分 ≤ 任何候选区评分，从而实现"不影响结果 + 差别最大"。
+    """
+    d = PARAMETERS[param]
+    if d["kind"] != "continuous":
+        return np.full(shape, float(min(d["categories"].values())), dtype="float32")
+    noise = _smooth_noise_field(rng, shape)
+    span = float(d["hi"] - d["lo"])
+    if d["direction"] == "higher_better":
+        value = float(d["lo"]) + frac * span * noise          # 越接近 lo 越差
+        return ((value - d["lo"]) / span).astype("float32")
+    value = float(d["hi"]) - frac * span * noise              # 越接近 hi 越差
+    return (1.0 - (value - d["lo"]) / span).astype("float32")
 
 
 def _site_slice(grid, lat, lon, radius_m, margin=1.6):
@@ -128,6 +176,7 @@ def main():
     font = _setup_cjk_font()
     print(f"[字体] 使用 {font}" if font else "[字体] 未找到中文字体")
     os.makedirs(args.outdir, exist_ok=True)
+    T_START = time.perf_counter()
 
     k = max(1, int(args.decimate))
     res = SRC_RES_DEG * k
@@ -155,56 +204,95 @@ def main():
     assert np.allclose(isvm_check.reindex(ref.index), ref, atol=1e-12), "贡献度分解不闭合"
     print("=== 贡献度分解校验通过：Σc(p) == ISVM（容差 1e-12）===")
 
-    # ---- 生成栅格（仅候选区，区外 nodata）----
+    # ---- 生成全幅栅格：候选区用站点评分，区外用合成填充（实装测试）----
+    t_fill = time.perf_counter()
     shape = grid.shape
-    isvm_map = np.full(shape, np.nan, dtype="float64")
-    contrib = {p: np.full(shape, np.nan, dtype="float64") for p in SCIENCE_PARAMETERS}
-    roi_outline = {}
-
     site_order = fp["site"].tolist()
+    roi_outline = {}
+    fill_mask = np.zeros(shape, dtype="uint8")          # 1 = 候选区，0 = 合成填充
+    site_masks = []
     for _, f in fp.iterrows():
         name = f["site"]
         if name not in ref.index:
             continue
         lat, lon = float(f["lat_deg"]), float(f["lon_deg"])
-        radius = float(f["footprint_radius_m"])
-        sl, disk = _site_slice(grid, lat, lon, radius)
-        sub = isvm_map[sl]
-        sub[disk] = float(ref[name])
-        for p in SCIENCE_PARAMETERS:
-            s = contrib[p][sl]
-            s[disk] = float(eff[p] * per_param.loc[name, p])
+        sl, disk = _site_slice(grid, lat, lon, float(f["footprint_radius_m"]))
+        site_masks.append((name, sl, disk))
+        mv = fill_mask[sl]
+        mv[disk] = 1
         roi_outline[name] = (lat, lon, float(f["roi_diameter_m"]) / 2.0)
 
-    isvm_out = np.where(np.isnan(isvm_map), NODATA, isvm_map)
+    rng_fill = np.random.default_rng(FILL_SEED)
+    contrib = {}
+    for p in SCIENCE_PARAMETERS:
+        sf = _fill_score_field(p, shape, rng_fill)       # 区外填充评分
+        for name, sl, disk in site_masks:                # 候选区覆盖为真实评分
+            v = sf[sl]
+            v[disk] = float(per_param.loc[name, p])
+        contrib[p] = (np.float32(eff[p]) * sf).astype("float32")
+        del sf
+    isvm_map = np.zeros(shape, dtype="float32")
+    for p in SCIENCE_PARAMETERS:
+        isvm_map += contrib[p]
+    t_fill = time.perf_counter() - t_fill
+
+    n_px = int(shape[0] * shape[1])
+    n_cand = int(fill_mask.sum())
+    print(f"\n=== 全幅填充（合成占位数据）===")
+    print(f"  格网 {shape[1]}×{shape[0]} = {n_px/1e6:.2f} M 像元，"
+          f"其中候选区 {n_cand} 像元（{100*n_cand/n_px:.2f}%）、"
+          f"填充区 {n_px-n_cand} 像元（{100*(n_px-n_cand)/n_px:.2f}%）")
+    print(f"  填充规则：连续参数取最差端 {FILL_FRAC*100:.0f}% 域宽 + 平滑噪声（种子 {FILL_SEED}）；"
+          f"分类参数取最低档")
+    print(f"  生成耗时 {t_fill:.2f} s（10 个参数的填充场 + 评分）")
+
+    cand_min_isvm = float(ref.min())
+    fill_max_isvm = float(isvm_map[fill_mask == 0].max())
+    print(f"  候选区 ISVM ∈ [{cand_min_isvm:.4f}, {float(ref.max()):.4f}]  |  "
+          f"填充区 ISVM ∈ [{float(isvm_map[fill_mask == 0].min()):.4f}, {fill_max_isvm:.4f}]")
+    print(f"  填充区最大 ISVM < 候选区最小 ISVM ：{fill_max_isvm < cand_min_isvm} "
+          f"（差值 {cand_min_isvm - fill_max_isvm:.4f}）")
+
+    # ---- 写出栅格 ----
+    t_write = time.perf_counter()
     write_geotiff(
         os.path.join(args.outdir, "bennu_isvm_landing_value.tiff"),
-        isvm_out[None, :, :], ["isvm"], grid,
-        band_labels=["着陆点科学性价值 ISVM（仅候选区，区外 nodata）"],
+        isvm_map[None, :, :], ["isvm"], grid,
+        band_labels=["着陆点科学性价值 ISVM（全幅：候选区实测 + 区外合成填充）"],
         metadata={"product": "landing_site_science_value", "weight_scheme": args.weights,
                   "footprint_radius_m": "per site_footprints.csv",
-                  "note": "区外为 nodata(-9999)，不做背景填充"})
+                  "fill": "synthetic placeholder: worst-end value + smooth noise",
+                  "fill_seed": FILL_SEED, "fill_frac": FILL_FRAC,
+                  "mask_band": "bennu_fill_mask.tiff (1=candidate, 0=synthetic)"})
 
-    cube = np.stack([np.where(np.isnan(contrib[p]), NODATA, contrib[p])
-                     for p in SCIENCE_PARAMETERS]).astype("float32")
+    cube = np.stack([contrib[p] for p in SCIENCE_PARAMETERS]).astype("float32")
     write_geotiff(
         os.path.join(args.outdir, "bennu_param_contribution.tiff"), cube,
         [f"contrib_{p}" for p in SCIENCE_PARAMETERS], grid,
         band_labels=[PARAMETERS[p]["label"] for p in SCIENCE_PARAMETERS],
         metadata={"product": "param_contribution_absolute",
                   "definition": "c(p) = s(p) * w(indicator)/n(indicator); sum == ISVM",
-                  "weight_scheme": args.weights, "nodata": NODATA})
+                  "weight_scheme": args.weights,
+                  "fill_seed": FILL_SEED, "fill_frac": FILL_FRAC})
+    del cube
 
-    total = np.where(np.isnan(isvm_map), np.nan, isvm_map)
-    share = np.stack([
-        np.where(np.isnan(contrib[p]), NODATA, 100.0 * contrib[p] / total)
-        for p in SCIENCE_PARAMETERS]).astype("float32")
+    share = np.stack([(100.0 * contrib[p] / isvm_map).astype("float32")
+                      for p in SCIENCE_PARAMETERS]).astype("float32")
     write_geotiff(
         os.path.join(args.outdir, "bennu_param_contribution_share.tiff"), share,
         [f"share_{p}" for p in SCIENCE_PARAMETERS], grid,
         band_labels=[PARAMETERS[p]["label"] for p in SCIENCE_PARAMETERS],
         metadata={"product": "param_contribution_share_pct",
                   "note": "每个像元 10 个波段之和为 100%"})
+    del share
+
+    write_geotiff(
+        os.path.join(args.outdir, "bennu_fill_mask.tiff"), fill_mask[None, :, :],
+        ["fill_mask"], grid, band_labels=["1=候选区实测/文献值，0=合成填充"],
+        dtype="uint8", nodata=None,
+        metadata={"product": "fill_mask", "note": "区分实测候选区与合成填充像元"})
+    t_write = time.perf_counter() - t_write
+    print(f"  栅格写出耗时 {t_write:.2f} s")
 
     # ---- 明细表 ----
     rows = []
@@ -236,11 +324,18 @@ def main():
         _figures(args, grid, dom, dom_mask, fp, isvm_map, contrib, ref,
                  roi_outline, contrib_df)
 
+    print("\n=== 输出栅格 ===")
+    total_bytes = 0
     for f in ["bennu_isvm_landing_value.tiff", "bennu_param_contribution.tiff",
-              "bennu_param_contribution_share.tiff"]:
+              "bennu_param_contribution_share.tiff", "bennu_fill_mask.tiff"]:
         p = os.path.join(args.outdir, f)
-        print(f"[输出] {p}  ({os.path.getsize(p) / 1e6:.2f} MB)")
+        size = os.path.getsize(p)
+        total_bytes += size
+        print(f"  {p}  ({size / 1e6:.2f} MB)")
     print(f"[输出] {csv_path}")
+    print(f"\n=== 性能 === 全流程 {time.perf_counter() - T_START:.2f} s"
+          f"（填充+评分 {t_fill:.2f} s，栅格写出 {t_write:.2f} s）；"
+          f"栅格合计 {total_bytes / 1e6:.2f} MB")
 
 
 def _panel_base(ax, dom, dom_mask, grid, title, scale=1.0):
@@ -263,7 +358,7 @@ def _draw_global_panel(ax, grid, dom, dom_mask, isvm_map, fp, sites_order, ref,
     ext = [grid.lon_min, grid.lon_max, grid.lat_min, grid.lat_max]
     _panel_base(ax, dom, dom_mask, grid, "Bennu 全域（DOM）", scale=scale)
     im = ax.imshow(np.where(np.isnan(isvm_map), np.nan, isvm_map), extent=ext,
-                   origin="upper", cmap="turbo", vmin=0.5, vmax=0.8, alpha=0.95)
+                   origin="upper", cmap="turbo", vmin=0.5, vmax=0.8, alpha=OVERLAY_ALPHA)
     for name in sites_order:
         if name in ref.index:
             f = fp[fp["site"] == name].iloc[0]
@@ -300,7 +395,7 @@ def _figures(args, grid, dom, dom_mask, fp, isvm_map, contrib, ref, roi_outline,
                   origin="upper", cmap="gray", vmin=0,
                   vmax=float(np.nanpercentile(dom[~dom_mask], 98)))
         ax.imshow(np.where(np.isnan(isvm_map[sl]), np.nan, isvm_map[sl]), extent=zext,
-                  origin="upper", cmap="turbo", vmin=0.5, vmax=0.8, alpha=0.9)
+                  origin="upper", cmap="turbo", vmin=0.5, vmax=0.8, alpha=OVERLAY_ALPHA)
         ax.add_patch(Circle((0, 0), float(f["footprint_radius_m"]), fill=False,
                             ec="white", lw=0.8, ls="--"))
         r_roi = roi_outline[name][2]
@@ -332,7 +427,8 @@ def _figures(args, grid, dom, dom_mask, fp, isvm_map, contrib, ref, roi_outline,
         ax = axes[0]
         _panel_base(ax, dom, dom_mask, grid, "Bennu 全域（DOM）")
         im = ax.imshow(np.where(np.isnan(arr), np.nan, arr), extent=ext,
-                       origin="upper", cmap=PARAM_CMAP, vmin=0, vmax=vmax, alpha=0.95)
+                       origin="upper", cmap=PARAM_CMAP, vmin=0, vmax=vmax,
+                       alpha=OVERLAY_ALPHA)
         fig.colorbar(im, ax=ax, fraction=0.03, pad=0.02, label="贡献度")
         for name in sites_order:
             if name in ref.index:
@@ -355,7 +451,8 @@ def _figures(args, grid, dom, dom_mask, fp, isvm_map, contrib, ref, roi_outline,
                       origin="upper", cmap="gray", vmin=0,
                       vmax=float(np.nanpercentile(dom[~dom_mask], 98)))
             im2 = ax.imshow(np.where(np.isnan(arr[sl]), np.nan, arr[sl]), extent=zext,
-                            origin="upper", cmap=PARAM_CMAP, vmin=0, vmax=vmax, alpha=0.9)
+                            origin="upper", cmap=PARAM_CMAP, vmin=0, vmax=vmax,
+                            alpha=OVERLAY_ALPHA)
             ax.add_patch(Circle((0, 0), float(f["footprint_radius_m"]), fill=False,
                                 ec="white", lw=0.8, ls="--"))
             val = float(contrib_df[(contrib_df["site"] == name)

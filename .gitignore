@@ -37,3 +37,9 @@ articles/
 # 仅保留说明文件；DOM / DEM / DEG 等原始产品放在本机，通过路径参数传给脚本
 data/planetary/*
 !data/planetary/README.md
+
+# ---------------- 全幅实装测试栅格（体积大，可 36 s 重跑生成）----------------
+# 10 波段全幅栅格合计约 200 MB，超过 GitHub 单文件 100 MB 上限，不入库；
+# 成品图（PNG）、ISVM 单波段、掩膜与 CSV 仍纳入版本管理
+outputs/rasters/bennu_param_contribution.tiff
+outputs/rasters/bennu_param_contribution_share.tiff

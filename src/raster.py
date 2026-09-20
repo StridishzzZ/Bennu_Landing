@@ -37,6 +37,19 @@ BENNU_WKT = (
     'PRIMEM["Reference_Meridian",0],UNIT["degree",0.0174532925199433]]'
 )
 
+def _gdal_dtype(gdal, dtype):
+    """numpy dtype → GDAL 数据类型（GDAL 后端按真实 dtype 建栅格，不再写死 Float32）。"""
+    return {
+        "uint8": gdal.GDT_Byte,
+        "int8": gdal.GDT_Byte,
+        "uint16": gdal.GDT_UInt16,
+        "int16": gdal.GDT_Int16,
+        "uint32": gdal.GDT_UInt32,
+        "int32": gdal.GDT_Int32,
+        "float32": gdal.GDT_Float32,
+        "float64": gdal.GDT_Float64,
+    }.get(np.dtype(dtype).name, gdal.GDT_Float32)
+
 
 def _try_gdal():
     try:
@@ -200,9 +213,17 @@ def write_geotiff(path, cube, band_names, grid: GridSpec, band_labels=None,
     backend = None
     if gdal is not None:
         driver = gdal.GetDriverByName("GTiff")
+        gdal_type = _gdal_dtype(gdal, arr.dtype)
+        # PREDICTOR：浮点用 3，16 位及以上整型用 2，8 位只能用 1（不预测）
+        if np.dtype(arr.dtype).kind == "f":
+            predictor = 3
+        elif np.dtype(arr.dtype).itemsize >= 2:
+            predictor = 2
+        else:
+            predictor = 1
         ds = driver.Create(
-            str(path), grid.width, grid.height, arr.shape[0], gdal.GDT_Float32,
-            options=["COMPRESS=" + str(compress), "TILED=YES", "PREDICTOR=3"],
+            str(path), grid.width, grid.height, arr.shape[0], gdal_type,
+            options=["COMPRESS=" + str(compress), "TILED=YES", f"PREDICTOR={predictor}"],
         )
         if ds is None:
             raise RuntimeError(f"GDAL 无法创建 {path}")
@@ -211,7 +232,8 @@ def write_geotiff(path, cube, band_names, grid: GridSpec, band_labels=None,
         for i in range(arr.shape[0]):
             band = ds.GetRasterBand(i + 1)
             band.SetDescription(_band_description(band_names[i], labels[i]))
-            band.SetNoDataValue(float(nodata))
+            if nodata is not None:
+                band.SetNoDataValue(float(nodata))
             band.WriteArray(arr[i])
         ds.SetMetadataItem("CODEX_BENNU_META", meta_json)
         ds.FlushCache()
