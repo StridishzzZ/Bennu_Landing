@@ -254,3 +254,28 @@ sulfide / hydrated / band depth / 2.7 um / OVIRS / OTES / thermal inertia 等）
 2. Type D 岩块反照率 0.054±0.004、ν(10 cm)=4.6 cm，补齐 Type A-D 四类赋值表；
 3. MapCam 700 nm 相对带深（RBD）被原文明确指向层状硅酸盐（Vilas, 1994），
    是目前文件夹内唯一有矿物学解释的高分辨率代理指数。
+
+## 8. 落地记录（2026-09-12）：Tier-1 代理场已接入 ISVM 地图
+
+第 5 节建议的最小改动路径已实现为 `experiments/exp9_global_isvm_map.py` +
+`src/mineral_maps.py` + `src/mapping.py`，产物在 `outputs/rasters/`：
+
+1. `bennu_mineral_abundance.tiff`：6 波段矿物丰度图（phyllo / carbonate / sulfate /
+   oxide / silicate / amorphous），逐像元归一为 1。**当前是 Tier-1 代理丰度场**：
+   全球本底按文献锚点给定（层状硅酸盐主导、水合近均匀），亮斑场按 Kaplan/Jawin 的
+   碳酸盐亮斑证据布设，随机种子固定为 20260912 以保证可复现；
+2. `bennu_isvm_4band.tiff`：科学价值四通道地图，band1–4 依次为 C/M/G/T
+   （即 SVCCM / SVMM / SVGFM / SVTM），栅格值就是评分结果；
+3. `bennu_isvm_total.tiff`：ISVM 综合单波段。
+
+与本文档第 6 节清单的对应关系：
+
+| 清单项 | 状态 |
+|---|---|
+| P0 下载 global normal albedo mosaic 与 MapCam 颜色镶嵌 | 未做（需要 PDS 外网数据） |
+| P0 复现 Tier-1 相分类并叠加站点椭圆 | 部分完成：代理丰度场与站点足迹已叠加；相分类（k-means）尚未做，因为缺少真实反照率/颜色镶嵌 |
+| P1 形状模型 + SPICE 核做投影校正 | 未做；当前用等经纬度近似，Bennu 近球形（245 m 半径）下该近似误差可接受 |
+| P2 Ryugu NIRS3 带深图做方法演练 | 未做 |
+
+替换为真实数据的入口：`python experiments/exp9_global_isvm_map.py --mineral-raster <真实栅格>`
+（任意波段数的 GeoTIFF，自动双线性重采样到目标格网）。

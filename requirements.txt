@@ -1,2 +1,9 @@
 numpy>=1.24
 pandas>=1.5
+
+# 实验 1-8（评分/实验/绘图）另需：
+#   matplotlib>=3.6
+#
+# 实验 9（全球 GeoTIFF 栅格化）另需以下之一，用于 GeoTIFF 读写：
+#   gdal>=3.6        # conda install -c conda-forge gdal（推荐，带地理变换与投影）
+#   tifffile>=2023   # pip install tifffile（无 GDAL 时的回退方案）

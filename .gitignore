@@ -32,3 +32,8 @@ Desktop.ini
 
 # Articles (literature PDFs) are intentionally NOT tracked.
 articles/
+
+# ---------------- 行星基础数据（大体积栅格，默认不纳入版本管理）----------------
+# 仅保留说明文件；DOM / DEM / DEG 等原始产品放在本机，通过路径参数传给脚本
+data/planetary/*
+!data/planetary/README.md

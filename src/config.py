@@ -224,3 +224,6 @@ INDICATOR_PARAMETERS = {
     "G": ["space_weathering_proxy", "crater_freshness", "activity_level", "psfd_class"],
     "T": ["temp_rel_global"],
 }
+# --- CODEX UNDO TEST (safe to delete) ---
+# Temporary marker used to verify the app's per-turn undo/revert feature.
+UNDO_TEST_FLAG = True

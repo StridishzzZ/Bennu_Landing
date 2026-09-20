@@ -65,6 +65,31 @@ max_particle_cm、tagsam_tilt_deg、target_radius_m、nav_error_m；
 - L08-B：SCI 人工陨石坑后的二次采样点，靠近喷射物富集区、科学价值高、工程约束更严
   （Kikuchi et al. 2022）——置信度中。
 
+## site_footprints.csv（实验 9 新增）
+
+贝努四候选区的文献坐标与足迹半径，用于把评分结果栅格化到全球地图。
+
+- 中心坐标取自 `articles/3-Geologic Context ... sample sites.pdf`
+  （Burke et al. 2021, Remote Sens. 13, 1315）中逐阶段的 ROI 中心表：
+  Nightingale 56.05°N/42.05°E（ReconC）、Osprey 11.62°N/88.63°E（ReconC）、
+  Kingfisher 11.49°N/55.49°E（ReconA）、Sandpiper −46.98°N/321.34°E（ReconA）。
+  Nightingale 与 Osprey 另有 `articles/1463.pdf`（Enos et al. 2020）独立给出的
+  56.05°/42.05° 与 11.62°/88.62°，两者一致——置信度高；
+- Kingfisher / Sandpiper 只有 ReconA 测区（无 ReconC 精细收敛），置信度中；
+- `footprint_radius_m` 统一取 25 m，是**设计假设**而非文献实测值
+  （量级参照 20–25 m 级采样椭圆），需要更严格时请按各站点 2σ 椭圆改正后重跑实验 9。
+- 注意 Sandpiper 经度为 321.34°E（即 38.66°W），不要误写成 43°E。
+
+## global_baseline.csv（实验 9 新增）
+
+全球背景基线参数（一行），供实验 9 在地图非候选区部分填充背景值。
+
+- 依据：Lauretta et al. 2019 全球表征、Hamilton et al. 2019 全球水合近均匀、
+  Simon et al. 2020 含碳物质全球分布；数值为全球平均量级的设计基线，**非实测栅格**；
+- 该行经同一套评分函数得到背景指示分（当前 priority 权重下 C=0.613、M=0.683、
+  G=0.488、T=0.500）；
+- 若后续获得全球栅格产品，建议用真实栅格的全球中位数替换本行数值。
+
 ## 使用建议
 
 - 正式实验前，请把 confidence=low 的参数替换为你自己的测量/估算值；

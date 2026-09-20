@@ -1,0 +1,2 @@
+site,organic_abundance,ch2_ch3,carbon_content_pct,mineral_classes_detected,hydration_depth,space_weathering_proxy,crater_freshness,activity_level,psfd_class,temp_rel_global,tmax_k,slope_deg,boulder_coverage,roughness,frac_le2cm,max_particle_cm,tagsam_tilt_deg,target_radius_m,nav_error_m,source,confidence
+Bennu_global_background,0.6,0.9,4.0,4.0,0.7,0.5,paleo,none,mix,average,330,8.0,0.15,0.5,0.4,5.0,5.0,8.0,1.5,"全球背景基线（设计值）：全球平均性质，取自 Lauretta et al. 2019 全球表征、Hamilton et al. 2019 全球水合近均匀、Simon et al. 2020 含碳物质全球分布；非实测栅格，仅用于地图背景填充",medium

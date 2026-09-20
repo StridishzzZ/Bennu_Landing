@@ -1,0 +1,41 @@
+﻿site,parameter,label,indicator,score,effective_weight,contribution,share_pct
+Nightingale,organic_abundance,有机物检出与丰度,C,0.7,0.11666666666666665,0.08166666666666665,10.60376541874053
+Nightingale,ch2_ch3,CH2/CH3 比,C,0.88,0.11666666666666665,0.10266666666666666,13.330447954988097
+Nightingale,carbon_content_pct,碳含量 (%),C,0.5,0.11666666666666665,0.05833333333333333,7.574118156243237
+Nightingale,mineral_classes_detected,关键矿物类别数,M,0.75,0.15,0.11249999999999999,14.607227872754812
+Nightingale,hydration_depth,水合矿物吸收带深,M,0.8,0.15,0.12,15.581043064271803
+Nightingale,space_weathering_proxy,空间风化代理（光谱红化）,G,0.7,0.05,0.034999999999999996,4.544470893745942
+Nightingale,crater_freshness,陨石坑新鲜度,G,1.0,0.05,0.05,6.492101276779918
+Nightingale,activity_level,活动/羽流证据,G,0.2,0.05,0.010000000000000002,1.2984202553559838
+Nightingale,psfd_class,PSFD 类别,G,1.0,0.05,0.05,6.492101276779918
+Nightingale,temp_rel_global,温度相对全球均值,T,1.0,0.15,0.15,19.476303830339752
+Osprey,organic_abundance,有机物检出与丰度,C,0.6,0.11666666666666665,0.06999999999999999,12.128212532486284
+Osprey,ch2_ch3,CH2/CH3 比,C,0.84,0.11666666666666665,0.09799999999999999,16.979497545480797
+Osprey,carbon_content_pct,碳含量 (%),C,0.4,0.11666666666666665,0.04666666666666666,8.085475021657523
+Osprey,mineral_classes_detected,关键矿物类别数,M,0.6666666666666666,0.15,0.09999999999999999,17.326017903551836
+Osprey,hydration_depth,水合矿物吸收带深,M,0.7,0.15,0.105,18.192318798729428
+Osprey,space_weathering_proxy,空间风化代理（光谱红化）,G,0.5,0.05,0.025,4.331504475887959
+Osprey,crater_freshness,陨石坑新鲜度,G,0.6,0.05,0.03,5.1978053710655505
+Osprey,activity_level,活动/羽流证据,G,0.2,0.05,0.010000000000000002,1.732601790355184
+Osprey,psfd_class,PSFD 类别,G,0.35,0.05,0.017499999999999998,3.032053133121571
+Osprey,temp_rel_global,温度相对全球均值,T,0.5,0.15,0.075,12.994513427663877
+Kingfisher,organic_abundance,有机物检出与丰度,C,0.6,0.11666666666666665,0.06999999999999999,11.82099634112018
+Kingfisher,ch2_ch3,CH2/CH3 比,C,0.84,0.11666666666666665,0.09799999999999999,16.54939487756825
+Kingfisher,carbon_content_pct,碳含量 (%),C,0.4,0.11666666666666665,0.04666666666666666,7.880664227413453
+Kingfisher,mineral_classes_detected,关键矿物类别数,M,0.6666666666666666,0.15,0.09999999999999999,16.887137630171686
+Kingfisher,hydration_depth,水合矿物吸收带深,M,0.7,0.15,0.105,17.73149451168027
+Kingfisher,space_weathering_proxy,空间风化代理（光谱红化）,G,0.5,0.05,0.025,4.221784407542922
+Kingfisher,crater_freshness,陨石坑新鲜度,G,0.6,0.05,0.03,5.066141289051506
+Kingfisher,activity_level,活动/羽流证据,G,0.2,0.05,0.010000000000000002,1.6887137630171691
+Kingfisher,psfd_class,PSFD 类别,G,0.65,0.05,0.0325,5.488319729805799
+Kingfisher,temp_rel_global,温度相对全球均值,T,0.5,0.15,0.075,12.665353222628765
+Sandpiper,organic_abundance,有机物检出与丰度,C,0.6,0.11666666666666665,0.06999999999999999,11.563876651982378
+Sandpiper,ch2_ch3,CH2/CH3 比,C,0.86,0.11666666666666665,0.10033333333333332,16.574889867841406
+Sandpiper,carbon_content_pct,碳含量 (%),C,0.45,0.11666666666666665,0.0525,8.672907488986786
+Sandpiper,mineral_classes_detected,关键矿物类别数,M,0.6666666666666666,0.15,0.09999999999999999,16.519823788546258
+Sandpiper,hydration_depth,水合矿物吸收带深,M,0.7,0.15,0.105,17.34581497797357
+Sandpiper,space_weathering_proxy,空间风化代理（光谱红化）,G,0.6,0.05,0.03,4.955947136563877
+Sandpiper,crater_freshness,陨石坑新鲜度,G,0.6,0.05,0.03,4.955947136563877
+Sandpiper,activity_level,活动/羽流证据,G,0.2,0.05,0.010000000000000002,1.6519823788546262
+Sandpiper,psfd_class,PSFD 类别,G,0.65,0.05,0.0325,5.368942731277533
+Sandpiper,temp_rel_global,温度相对全球均值,T,0.5,0.15,0.075,12.389867841409693

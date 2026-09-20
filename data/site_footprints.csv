@@ -1,0 +1,5 @@
+site,lat_deg,lon_deg,footprint_radius_m,phase,roi_diameter_m,source,confidence
+Nightingale,56.05,42.05,25.0,ReconC,4.24,"Burke et al. 2021, Remote Sens. 13, 1315 (ROI 中心 lat,lon,直径); Enos et al. 2020, LPSC #1463 (56.05°, 42.05°)",high
+Osprey,11.62,88.63,25.0,ReconC,3.02,"Burke et al. 2021, Remote Sens. 13, 1315; Enos et al. 2020, LPSC #1463 (11.62°, 88.62°)",high
+Kingfisher,11.49,55.49,25.0,ReconA,7.75,"Burke et al. 2021, Remote Sens. 13, 1315 (ReconA 仅测区，见该文 Figure 2)",medium
+Sandpiper,-46.98,321.34,25.0,ReconA,8.75,"Burke et al. 2021, Remote Sens. 13, 1315 (ReconA 仅测区)",medium
